@@ -1,0 +1,40 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+secrets.json
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker / tạm
+*.pid
