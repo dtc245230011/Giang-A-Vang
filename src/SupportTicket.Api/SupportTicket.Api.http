@@ -1,0 +1,11 @@
+@SupportTicket.Api_HostAddress = http://localhost:5026
+
+GET {{SupportTicket.Api_HostAddress}}/health
+Accept: text/plain
+
+###
+
+GET {{SupportTicket.Api_HostAddress}}/api/info
+Accept: application/json
+
+###
