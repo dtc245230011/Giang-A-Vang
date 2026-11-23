@@ -1,11 +1,66 @@
-@SupportTicket.Api_HostAddress = http://localhost:5026
+@host = http://localhost:5026
+@customerToken = paste-customer-jwt-here
+@agentToken = paste-agent-jwt-here
+@adminToken = paste-admin-jwt-here
+@ticketId = paste-ticket-id-here
 
-GET {{SupportTicket.Api_HostAddress}}/health
+GET {{host}}/health
 Accept: text/plain
 
 ###
 
-GET {{SupportTicket.Api_HostAddress}}/api/info
+GET {{host}}/api/info
 Accept: application/json
 
 ###
+
+# Đăng nhập khách hàng demo. Mật khẩu lấy từ DEMO_PASSWORD trong .env.
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@support.local",
+  "password": "paste-demo-password-here"
+}
+
+###
+
+# Dán token nhận được vào biến @customerToken ở đầu file.
+POST {{host}}/api/tickets
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "title": "Không đăng nhập được vào tài khoản",
+  "description": "Mô tả sự cố chi tiết để hệ thống phân công đúng nhóm xử lý.",
+  "category": "Account",
+  "priority": "High"
+}
+
+###
+
+GET {{host}}/api/tickets?page=1&pageSize=20&status=New
+Authorization: Bearer {{customerToken}}
+
+###
+
+GET {{host}}/api/tickets/{{ticketId}}
+Authorization: Bearer {{customerToken}}
+
+###
+
+GET {{host}}/api/tickets/{{ticketId}}/history
+Authorization: Bearer {{customerToken}}
+
+###
+
+# Agent được giao cập nhật trạng thái. Lấy rowVersion từ response chi tiết.
+PATCH {{host}}/api/tickets/{{ticketId}}/status
+Authorization: Bearer {{agentToken}}
+Content-Type: application/json
+
+{
+  "status": "InProgress",
+  "note": "Nhân viên bắt đầu xử lý.",
+  "rowVersion": "paste-row-version-here"
+}
