@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quản trị hệ thống • Hỗ trợ khách hàng</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b2545'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Segoe UI,Arial' font-size='26' font-weight='700' fill='%232dd4bf'%3EST%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar"></aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="main-area">
+      <header id="topbar" class="topbar"></header>
+      <main id="content" class="page-content">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h2 class="h5 fw-bold mb-1">Quản trị hệ thống</h2>
+            <div class="text-muted-soft small">Quản lý tài khoản, vai trò và nhóm xử lý yêu cầu.</div>
+          </div>
+          <div class="nav-pills-custom" role="tablist" aria-label="Khu vực quản trị">
+            <button class="nav-link active" id="tab-users" type="button" role="tab" aria-selected="true" aria-controls="panel-users">Người dùng</button>
+            <button class="nav-link" id="tab-teams" type="button" role="tab" aria-selected="false" aria-controls="panel-teams">Nhóm xử lý</button>
+          </div>
+        </div>
+
+        <div id="admin-alert" aria-live="polite"></div>
+
+        <section id="panel-users" role="tabpanel" aria-labelledby="tab-users">
+          <div class="card-panel mb-4">
+            <div class="card-panel-body">
+              <div class="row g-2 align-items-end">
+                <div class="col-lg-4 col-md-6">
+                  <label class="form-label" for="user-search">Tìm kiếm</label>
+                  <input class="form-control" id="user-search" type="search" placeholder="Họ tên hoặc email...">
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                  <label class="form-label" for="user-role-filter">Vai trò</label>
+                  <select class="form-select" id="user-role-filter"><option value="">Tất cả</option></select>
+                </div>
+                <div class="col-lg-2 col-md-3 col-6">
+                  <label class="form-label" for="user-active-filter">Trạng thái</label>
+                  <select class="form-select" id="user-active-filter">
+                    <option value="">Tất cả</option>
+                    <option value="true">Đang hoạt động</option>
+                    <option value="false">Đã vô hiệu hóa</option>
+                  </select>
+                </div>
+                <div class="col-lg-4 d-flex justify-content-lg-end">
+                  <button class="btn btn-primary d-inline-flex align-items-center gap-2" id="add-user-button" type="button">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Thêm người dùng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-panel">
+            <div class="card-panel-header">
+              <h2>Danh sách tài khoản</h2>
+              <span class="ms-auto small text-muted-soft" id="user-count"></span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th scope="col">Họ tên</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Vai trò</th>
+                    <th scope="col">Nhóm</th>
+                    <th scope="col">Trạng thái</th>
+                    <th scope="col">Ngày tạo</th>
+                    <th scope="col" class="text-end">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="user-rows">
+                  <tr><td colspan="7" class="table-empty">Đang tải tài khoản...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-teams" class="d-none" role="tabpanel" aria-labelledby="tab-teams">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="text-muted-soft small">Nhóm xử lý được worker dùng để phân công tự động.</div>
+            <button class="btn btn-primary d-inline-flex align-items-center gap-2" id="add-team-button" type="button">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Thêm nhóm
+            </button>
+          </div>
+          <div id="team-cards" class="row g-3">
+            <div class="col-md-6"><div class="skeleton skeleton-card" style="height:150px"></div></div>
+            <div class="col-md-6"><div class="skeleton skeleton-card" style="height:150px"></div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal người dùng -->
+  <div class="modal fade" id="user-modal" tabindex="-1" aria-labelledby="user-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="user-form">
+          <div class="modal-header">
+            <h2 class="modal-title" id="user-modal-title">Thêm người dùng</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body">
+            <div id="user-form-alert" aria-live="polite"></div>
+            <input type="hidden" id="user-id">
+            <div class="mb-3">
+              <label class="form-label" for="user-name">Họ và tên <span class="required">*</span></label>
+              <input class="form-control" id="user-name" type="text" maxlength="150" required minlength="2">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="user-email">Email <span class="required">*</span></label>
+              <input class="form-control" id="user-email" type="email" maxlength="256" required>
+              <div class="form-text" id="user-email-help">Email dùng để đăng nhập, không thể thay đổi sau khi tạo.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="user-password" id="user-password-label">Mật khẩu <span class="required">*</span></label>
+              <input class="form-control" id="user-password" type="password" minlength="8" maxlength="100" autocomplete="new-password">
+              <div class="form-text" id="user-password-help">Tối thiểu 8 ký tự.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="user-role">Vai trò <span class="required">*</span></label>
+              <select class="form-select" id="user-role" required></select>
+            </div>
+            <div id="user-create-only">
+              <div class="mb-3">
+                <label class="form-label" for="user-team">Nhóm xử lý</label>
+                <select class="form-select" id="user-team"><option value="">— Không thêm vào nhóm —</option></select>
+                <div class="form-text">Chỉ áp dụng khi vai trò là Nhân viên.</div>
+              </div>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="user-lead">
+                <label class="form-check-label" for="user-lead">Đặt làm trưởng nhóm</label>
+              </div>
+            </div>
+            <div class="form-check d-none" id="user-active-wrap">
+              <input class="form-check-input" type="checkbox" id="user-active" checked>
+              <label class="form-check-label" for="user-active">Tài khoản đang hoạt động</label>
+              <div class="form-text">Vô hiệu hóa thay vì xóa để giữ nguyên lịch sử yêu cầu.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Hủy</button>
+            <button class="btn btn-primary" type="submit" id="user-submit">Lưu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal nhóm -->
+  <div class="modal fade" id="team-modal" tabindex="-1" aria-labelledby="team-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="team-form">
+          <div class="modal-header">
+            <h2 class="modal-title" id="team-modal-title">Thêm nhóm xử lý</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body">
+            <div id="team-form-alert" aria-live="polite"></div>
+            <input type="hidden" id="team-id">
+            <div class="mb-3">
+              <label class="form-label" for="team-code">Mã nhóm <span class="required">*</span></label>
+              <input class="form-control text-uppercase" id="team-code" type="text" maxlength="20" required>
+              <div class="form-text" id="team-code-help">Ví dụ TECH, ACCT. Không thể đổi sau khi tạo.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="team-name">Tên nhóm <span class="required">*</span></label>
+              <input class="form-control" id="team-name" type="text" maxlength="100" required minlength="2">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="team-description">Mô tả</label>
+              <textarea class="form-control" id="team-description" rows="2" maxlength="500"></textarea>
+            </div>
+            <div class="form-check d-none" id="team-active-wrap">
+              <input class="form-check-input" type="checkbox" id="team-active" checked>
+              <label class="form-check-label" for="team-active">Nhóm đang hoạt động</label>
+              <div class="form-text">Worker chỉ phân công vào nhóm đang hoạt động. Yêu cầu cũ vẫn giữ nguyên nhóm.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Hủy</button>
+            <button class="btn btn-primary" type="submit" id="team-submit">Lưu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal thành viên -->
+  <div class="modal fade" id="members-modal" tabindex="-1" aria-labelledby="members-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="members-modal-title">Thành viên nhóm</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <div id="members-alert" aria-live="polite"></div>
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-6">
+              <label class="form-label" for="member-agent">Thêm nhân viên</label>
+              <select class="form-select" id="member-agent"></select>
+            </div>
+            <div class="col-md-3">
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="member-lead">
+                <label class="form-check-label" for="member-lead">Trưởng nhóm</label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-primary w-100" id="add-member-button" type="button">Thêm vào nhóm</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trưởng nhóm</th><th class="text-end">Thao tác</th></tr>
+              </thead>
+              <tbody id="member-rows">
+                <tr><td colspan="5" class="table-empty">Đang tải...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container-custom" id="toast-container" aria-live="polite"></div>
+
+  <script src="vendor/bootstrap.bundle.min.js"></script>
+  <script src="vendor/signalr.min.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/realtime.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/pages/admin.js"></script>
+</body>
+</html>

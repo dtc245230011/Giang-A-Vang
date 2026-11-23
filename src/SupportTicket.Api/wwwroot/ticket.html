@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chi tiết yêu cầu • Hỗ trợ khách hàng</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b2545'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Segoe UI,Arial' font-size='26' font-weight='700' fill='%232dd4bf'%3EST%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar"></aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="main-area">
+      <header id="topbar" class="topbar"></header>
+      <main id="content" class="page-content">
+        <div class="mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <a href="tickets.html" class="small fw-semibold d-inline-flex align-items-center gap-1">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+            Quay lại danh sách
+          </a>
+          <button class="btn btn-outline-secondary btn-sm" id="refresh-button" type="button">Làm mới</button>
+        </div>
+
+        <div id="detail-alert" aria-live="polite"></div>
+        <div id="pending-refresh" class="d-none"></div>
+
+        <div id="detail-loading">
+          <div class="card-panel mb-4"><div class="card-panel-body">
+            <div class="skeleton skeleton-line" style="width:30%"></div>
+            <div class="skeleton skeleton-line" style="width:70%;height:22px"></div>
+            <div class="skeleton skeleton-line" style="width:45%"></div>
+          </div></div>
+          <div class="row g-4">
+            <div class="col-lg-8"><div class="card-panel"><div class="card-panel-body">
+              <div class="skeleton skeleton-line" style="width:90%"></div>
+              <div class="skeleton skeleton-line" style="width:80%"></div>
+              <div class="skeleton skeleton-line" style="width:85%"></div>
+              <div class="skeleton skeleton-line" style="width:60%"></div>
+            </div></div></div>
+            <div class="col-lg-4"><div class="skeleton skeleton-card" style="height:220px"></div></div>
+          </div>
+        </div>
+
+        <div id="detail-view" class="d-none">
+          <div class="card-panel mb-4">
+            <div class="card-panel-body">
+              <div class="detail-header">
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1" id="detail-badges"></div>
+                  <h1 class="detail-title" id="detail-title"></h1>
+                  <div class="d-flex flex-wrap gap-3 small text-muted-soft" id="detail-subtitle"></div>
+                </div>
+                <div class="text-end">
+                  <div class="small-label mb-1">Mã yêu cầu</div>
+                  <div class="ticket-number" style="font-size:1rem" id="detail-number"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-xl-8">
+              <div class="card-panel mb-4">
+                <div class="card-panel-header"><h2>Nội dung yêu cầu</h2></div>
+                <div class="card-panel-body">
+                  <div class="ticket-description" id="detail-description"></div>
+                </div>
+              </div>
+
+              <div class="card-panel">
+                <div class="card-panel-header">
+                  <h2>Lịch sử thay đổi</h2>
+                  <span class="ms-auto small text-muted-soft" id="history-count"></span>
+                </div>
+                <div class="card-panel-body" id="history-list"></div>
+              </div>
+            </div>
+
+            <div class="col-xl-4">
+              <div class="card-panel mb-4">
+                <div class="card-panel-header"><h2>Thông tin xử lý</h2></div>
+                <div class="card-panel-body">
+                  <div class="meta-list" id="detail-meta"></div>
+                </div>
+              </div>
+
+              <div class="card-panel">
+                <div class="card-panel-header"><h2>Thao tác</h2></div>
+                <div class="card-panel-body" id="action-area"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="status-modal" tabindex="-1" aria-labelledby="status-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="status-form">
+          <div class="modal-header">
+            <h2 class="modal-title" id="status-modal-title">Cập nhật trạng thái</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">Chuyển yêu cầu <strong id="status-ticket-number"></strong> sang trạng thái
+              <span id="status-target"></span>?</p>
+            <div id="status-error" aria-live="polite"></div>
+            <label class="form-label" for="status-note">Ghi chú xử lý (không bắt buộc)</label>
+            <textarea class="form-control" id="status-note" rows="3" maxlength="500"
+                      placeholder="Ví dụ: Đã kiểm tra và hướng dẫn khách hàng..."></textarea>
+            <div class="form-text">Ghi chú được lưu vào lịch sử yêu cầu.</div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Hủy</button>
+            <button class="btn btn-primary" type="submit" id="status-confirm">Xác nhận</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container-custom" id="toast-container" aria-live="polite"></div>
+
+  <script src="vendor/bootstrap.bundle.min.js"></script>
+  <script src="vendor/signalr.min.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/realtime.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/pages/ticket.js"></script>
+</body>
+</html>

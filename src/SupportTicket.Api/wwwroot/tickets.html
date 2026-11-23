@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Danh sách yêu cầu • Hỗ trợ khách hàng</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b2545'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Segoe UI,Arial' font-size='26' font-weight='700' fill='%232dd4bf'%3EST%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar"></aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="main-area">
+      <header id="topbar" class="topbar"></header>
+      <main id="content" class="page-content">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h2 class="h5 fw-bold mb-1" id="list-heading">Danh sách yêu cầu</h2>
+            <div class="text-muted-soft small" id="list-subtitle">Đang tải dữ liệu...</div>
+          </div>
+          <a href="new-ticket.html" class="btn btn-primary d-inline-flex align-items-center gap-2">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Tạo yêu cầu
+          </a>
+        </div>
+
+        <div class="card-panel mb-4">
+          <div class="card-panel-body">
+            <form id="filter-form" class="row g-2 align-items-end" role="search">
+              <div class="col-lg-4 col-md-6">
+                <label class="form-label" for="search">Tìm kiếm</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white border-end-0" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#64748b" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                  </span>
+                  <input class="form-control border-start-0" id="search" type="search" placeholder="Mã yêu cầu hoặc tiêu đề..." maxlength="200">
+                </div>
+              </div>
+              <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label" for="filter-status">Trạng thái</label>
+                <select class="form-select" id="filter-status"><option value="">Tất cả</option></select>
+              </div>
+              <div class="col-lg-2 col-md-3 col-6">
+                <label class="form-label" for="filter-priority">Ưu tiên</label>
+                <select class="form-select" id="filter-priority"><option value="">Tất cả</option></select>
+              </div>
+              <div class="col-lg-2 col-md-6">
+                <label class="form-label" for="filter-category">Danh mục</label>
+                <select class="form-select" id="filter-category"><option value="">Tất cả</option></select>
+              </div>
+              <div class="col-lg-2 col-md-6" id="team-filter-wrap">
+                <label class="form-label" for="filter-team">Nhóm xử lý</label>
+                <select class="form-select" id="filter-team"><option value="">Tất cả</option></select>
+              </div>
+              <div class="col-12 d-flex flex-wrap align-items-center gap-3 pt-1">
+                <div class="form-check" id="unassigned-wrap">
+                  <input class="form-check-input" type="checkbox" id="filter-unassigned">
+                  <label class="form-check-label small" for="filter-unassigned">Chỉ yêu cầu chưa phân công</label>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="clear-filters">Xóa bộ lọc</button>
+                <div class="ms-auto small text-muted-soft" id="filter-summary"></div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="list-alert" aria-live="polite"></div>
+
+        <div class="card-panel">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th scope="col">Mã</th>
+                  <th scope="col">Tiêu đề</th>
+                  <th scope="col">Trạng thái</th>
+                  <th scope="col">Ưu tiên</th>
+                  <th scope="col">Người gửi</th>
+                  <th scope="col">Nhóm xử lý</th>
+                  <th scope="col">Cập nhật</th>
+                </tr>
+              </thead>
+              <tbody id="ticket-rows">
+                <tr><td colspan="7" class="table-empty">Đang tải danh sách yêu cầu...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-bar">
+            <div class="page-info" id="page-info">—</div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="small text-muted-soft mb-0" for="page-size">Số dòng</label>
+              <select class="form-select form-select-sm" id="page-size" style="width:auto">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <div class="pager" id="pager"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-container-custom" id="toast-container" aria-live="polite"></div>
+
+  <script src="vendor/bootstrap.bundle.min.js"></script>
+  <script src="vendor/signalr.min.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/realtime.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/pages/tickets.js"></script>
+</body>
+</html>

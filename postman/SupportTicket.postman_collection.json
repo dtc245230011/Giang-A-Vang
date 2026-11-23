@@ -1,0 +1,424 @@
+{
+  "info": {
+    "_postman_id": "b8f3f4d2-6d4a-4f4c-9d5e-8c2f1a7b3e10",
+    "name": "Support Ticket - Local API",
+    "description": "Bộ gọi API hệ thống hỗ trợ khách hàng. Không chứa token thật. Điền email/mật khẩu tài khoản demo trong environment cục bộ. Cần stack Docker đang chạy và Worker hoạt động để luồng phân công/trạng thái chạy đúng. Thứ tự gợi ý: đăng nhập Admin/Customer/Agent → Get teams → Get agents → Create ticket → chờ Worker phân công → Get detail → Change status.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5026" },
+    { "key": "adminEmail", "value": "admin@support.local" },
+    { "key": "adminPassword", "value": "" },
+    { "key": "customerEmail", "value": "customer@support.local" },
+    { "key": "customerPassword", "value": "" },
+    { "key": "agentEmail", "value": "agent.tech@support.local" },
+    { "key": "agentPassword", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "customerToken", "value": "" },
+    { "key": "agentToken", "value": "" },
+    { "key": "customerId", "value": "" },
+    { "key": "agentId", "value": "" },
+    { "key": "ticketId", "value": "" },
+    { "key": "ticketNumber", "value": "" },
+    { "key": "rowVersion", "value": "" },
+    { "key": "techTeamId", "value": "" },
+    { "key": "techAgentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Health và Meta",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API healthy', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.text()).to.include('Healthy');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Meta danh mục",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/meta", "host": ["{{baseUrl}}"], "path": ["api", "meta"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Đăng nhập",
+      "item": [
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Đăng nhập Admin thành công', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.collectionVariables.set('adminToken', d.token);",
+                  "pm.collectionVariables.set('adminId', d.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Đăng nhập Customer thành công', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.collectionVariables.set('customerToken', d.token);",
+                  "pm.collectionVariables.set('customerId', d.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Agent",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{agentEmail}}\",\n  \"password\": \"{{agentPassword}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Đăng nhập Agent thành công', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.collectionVariables.set('agentToken', d.token);",
+                  "pm.collectionVariables.set('agentId', d.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hồ sơ hiện tại",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Thiết lập nhóm và nhân viên",
+      "item": [
+        {
+          "name": "Danh sách nhóm (lưu TECH)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/teams?includeInactive=true", "host": ["{{baseUrl}}"], "path": ["api", "teams"], "query": [{ "key": "includeInactive", "value": "true" }] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const teams = pm.response.json();",
+                  "const tech = teams.find(t => t.code === 'TECH');",
+                  "pm.test('Có nhóm TECH', () => pm.expect(tech).to.be.an('object'));",
+                  "if (tech) pm.collectionVariables.set('techTeamId', tech.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nhân viên Kỹ thuật (lưu agent)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/users/agents?teamId={{techTeamId}}", "host": ["{{baseUrl}}"], "path": ["api", "users", "agents"], "query": [{ "key": "teamId", "value": "{{techTeamId}}" }] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const agents = pm.response.json();",
+                  "pm.test('Có ít nhất một nhân viên Kỹ thuật', () => pm.expect(agents.length).to.be.above(0));",
+                  "const agent = agents.find(a => a.email === 'agent.tech@support.local') || agents[0];",
+                  "if (agent) pm.collectionVariables.set('techAgentId', agent.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Năm API bắt buộc",
+      "item": [
+        {
+          "name": "POST /tickets (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Kiểm thử Postman: không đăng nhập được\",\n  \"description\": \"Yêu cầu tạo từ Postman để kiểm tra luồng API, RabbitMQ và Worker phân công.\",\n  \"category\": \"Account\",\n  \"priority\": \"High\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/tickets", "host": ["{{baseUrl}}"], "path": ["api", "tickets"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Tạo ticket trả 201', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test('Ticket mới ở trạng thái New', () => pm.expect(d.status).to.eql('New'));",
+                  "pm.collectionVariables.set('ticketId', d.id);",
+                  "pm.collectionVariables.set('ticketNumber', d.ticketNumber);",
+                  "pm.collectionVariables.set('rowVersion', d.rowVersion);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /tickets (lọc)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets?search={{ticketNumber}}&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets"],
+              "query": [
+                { "key": "search", "value": "{{ticketNumber}}" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Danh sách trả 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.test('Có ticket vừa tạo', () => pm.expect(d.items.some(t => t.id === pm.collectionVariables.get('ticketId'))).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /tickets/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/tickets/{{ticketId}}", "host": ["{{baseUrl}}"], "path": ["api", "tickets", "{{ticketId}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Chi tiết trả 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.collectionVariables.set('rowVersion', d.rowVersion);",
+                  "pm.test('Có mã ticket', () => pm.expect(d.ticketNumber).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /users/{userId}/tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/users/{{customerId}}/tickets", "host": ["{{baseUrl}}"], "path": ["api", "users", "{{customerId}}", "tickets"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Ticket theo người dùng trả 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /tickets/{id}/status → InProgress (Agent)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\",\n  \"note\": \"Nhân viên bắt đầu xử lý từ Postman.\",\n  \"rowVersion\": \"{{rowVersion}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/tickets/{{ticketId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "tickets", "{{ticketId}}", "status"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Chuyển InProgress thành công', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.collectionVariables.set('rowVersion', d.rowVersion);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /tickets/{id}/status → Resolved (Agent)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Resolved\",\n  \"note\": \"Đã xử lý xong từ Postman.\",\n  \"rowVersion\": \"{{rowVersion}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/tickets/{{ticketId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "tickets", "{{ticketId}}", "status"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Chuyển Resolved thành công', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.collectionVariables.set('rowVersion', d.rowVersion);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. API bổ sung",
+      "item": [
+        {
+          "name": "Lịch sử ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/tickets/{{ticketId}}/history", "host": ["{{baseUrl}}"], "path": ["api", "tickets", "{{ticketId}}", "history"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Có lịch sử thay đổi', () => pm.expect(pm.response.json().length).to.be.above(0));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard theo quyền",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/dashboard/summary", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "summary"] }
+          }
+        },
+        {
+          "name": "Danh sách tài khoản (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/api/users", "host": ["{{baseUrl}}"], "path": ["api", "users"] }
+          }
+        },
+        {
+          "name": "Ánh xạ tương thích /tickets không tiền tố",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": { "raw": "{{baseUrl}}/tickets?pageSize=1", "host": ["{{baseUrl}}"], "path": ["tickets"], "query": [{ "key": "pageSize", "value": "1" }] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Đường dẫn không tiền tố trả 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

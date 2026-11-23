@@ -1,0 +1,10 @@
+{
+  "name": "support-ticket-ui-check",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Kiểm thử giao diện bằng Playwright",
+  "dependencies": {
+    "playwright": "1.52.0"
+  }
+}

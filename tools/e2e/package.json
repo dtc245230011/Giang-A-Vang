@@ -1,0 +1,10 @@
+{
+  "name": "support-ticket-e2e",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Kiểm thử end-to-end RabbitMQ, Assignment Worker và SignalR",
+  "dependencies": {
+    "@microsoft/signalr": "8.0.17"
+  }
+}
