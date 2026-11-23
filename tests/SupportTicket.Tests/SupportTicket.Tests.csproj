@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SupportTicket.Api\SupportTicket.Api.csproj" />
+    <ProjectReference Include="..\..\src\SupportTicket.Infrastructure\SupportTicket.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
