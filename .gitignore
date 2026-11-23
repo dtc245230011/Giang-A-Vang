@@ -38,3 +38,6 @@ Desktop.ini
 
 # Docker / tạm
 *.pid
+
+# Node
+**/node_modules/

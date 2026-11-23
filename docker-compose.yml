@@ -46,6 +46,71 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  api:
+    build:
+      context: .
+      dockerfile: src/SupportTicket.Api/Dockerfile
+    container_name: support-ticket-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=SupportTicketDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+      Jwt__Key: "${JWT_KEY:?Hãy cấu hình JWT_KEY trong .env}"
+      Jwt__Issuer: "SupportTicket.Api"
+      Jwt__Audience: "SupportTicket.Client"
+      Jwt__ExpiryMinutes: "120"
+      RabbitMq__Enabled: "true"
+      RabbitMq__Host: "rabbitmq"
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD}"
+      Outbox__Enabled: "true"
+      Outbox__PollSeconds: "2"
+      Notifications__ConsumerEnabled: "true"
+      Seed__DefaultPassword: "${DEMO_PASSWORD:?Hãy cấu hình DEMO_PASSWORD trong .env}"
+      Seed__IncludeDemoTickets: "true"
+      Cors__AllowedOrigins__0: "http://localhost:${API_PORT:-5026}"
+    ports:
+      - "${API_PORT:-5026}:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/SupportTicket.Worker/Dockerfile
+    container_name: support-ticket-worker
+    environment:
+      DOTNET_ENVIRONMENT: "Production"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=SupportTicketDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+      RabbitMq__Enabled: "true"
+      RabbitMq__Host: "rabbitmq"
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD}"
+      Outbox__Enabled: "true"
+      Outbox__PollSeconds: "2"
+    depends_on:
+      api:
+        condition: service_healthy
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   sqlserver-data:
   rabbitmq-data:
