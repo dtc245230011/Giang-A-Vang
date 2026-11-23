@@ -7,10 +7,10 @@
 1. Khách hàng đăng nhập và gửi yêu cầu hỗ trợ.
 2. Support API xác thực JWT, kiểm tra dữ liệu và lưu ticket trạng thái `New`.
 3. API ghi lịch sử tạo ticket trong cùng transaction.
-4. API publish sự kiện `TicketCreated` lên RabbitMQ.
+4. API ghi sự kiện `TicketCreated` vào Outbox trong cùng transaction; tiến trình nền gửi lên RabbitMQ.
 5. Assignment Worker nhận thông điệp, xác định nhóm theo danh mục.
 6. Worker lưu nhóm xử lý, chuyển ticket sang `Assigned` và ghi lịch sử trong cùng transaction.
-7. Worker publish sự kiện `TicketAssigned`.
+7. Worker lưu sự kiện `TicketAssigned` vào Outbox trong cùng transaction; tiến trình nền gửi lên RabbitMQ.
 8. Notification Service nhận sự kiện và gửi thông báo qua SignalR cho đúng người.
 9. Nhân viên được giao chuyển ticket sang `InProgress`, sau đó `Resolved`.
 10. Mỗi thay đổi hợp lệ đều lưu lịch sử và phát sự kiện tương ứng.
@@ -40,8 +40,8 @@ stateDiagram-v2
 | Từ | Sang | Người thực hiện | Điều kiện |
 |---|---|---|---|
 | `New` | `Assigned` | Worker (tự động) hoặc Admin | Ticket chưa có nhóm; nhóm đích tồn tại |
-| `Assigned` | `InProgress` | Staff được gán trực tiếp, Staff thuộc nhóm được giao, Admin | Ticket đang `Assigned` |
-| `InProgress` | `Resolved` | Staff được gán trực tiếp, Staff thuộc nhóm được giao, Admin | Ticket đang `InProgress` |
+| `Assigned` | `InProgress` | Agent được gán trực tiếp, Agent thuộc nhóm được giao, Admin | Ticket đang `Assigned` |
+| `InProgress` | `Resolved` | Agent được gán trực tiếp, Agent thuộc nhóm được giao, Admin | Ticket đang `InProgress` |
 
 Các chuyển đổi sau bị chặn và trả `409 Conflict`:
 
@@ -64,15 +64,19 @@ Worker chỉ dựa trên `Category` của ticket. Không dùng từ khóa mờ t
 Quy tắc bổ sung:
 
 - Mức ưu tiên không ảnh hưởng đến việc chọn nhóm trong phạm vi đồ án.
-- Worker không tự chọn một nhân viên cụ thể; ticket được giao ở cấp nhóm (`AssignedTeamId`).
-- Admin có thể gán thêm nhân viên cụ thể (`AssignedUserId`) ở tuần 4.
-- Nếu không tìm thấy nhóm đích trong DB, worker không đánh dấu thành công; ghi log lỗi và để retry/DLQ.
-- Phân công lại chỉ Admin thực hiện, chỉ khi ticket ở `Assigned` hoặc `InProgress`.
+- Worker giao ở cấp nhóm (`AssignedTeamId`) và chọn **trưởng nhóm đang hoạt động** (hoặc thành viên Agent đầu tiên)
+  làm `AssignedUserId`. Nếu nhóm chưa có Agent hoạt động, `AssignedUserId = NULL` và ticket vẫn `Assigned`.
+- Không gán người không hoạt động, không thuộc nhóm hoặc không phải Agent.
+- Admin có thể gán nhóm/người cụ thể bất kỳ lúc nào qua `PATCH /tickets/{id}/assignment`.
+- Nếu không tìm thấy nhóm đích trong DB, worker không commit thay đổi; message được retry có giới hạn rồi vào DLQ.
+- Phân công lại chỉ Admin thực hiện; ticket `Resolved` không được phân công lại.
+- Worker không ghi đè phân công nếu ticket đã có nhóm/người xử lý (message cũ hoặc giao lại).
 
 ## 5. Ma trận phân quyền
 
-| Hành động | Khách hàng | Nhân viên | Admin |
+| Hành động | Khách hàng | Nhân viên (`Agent`) | Admin |
 |---|---|---|---|
+| Đăng ký công khai | Có, luôn tạo Customer | Không | Không |
 | Đăng nhập | Có | Có | Có |
 | Tạo ticket | Có | Có | Có |
 | Xem ticket do mình tạo | Có | Có | Có |
@@ -148,26 +152,28 @@ Mỗi thay đổi nghiệp vụ tạo một bản ghi `TicketHistories`:
   không gửi toàn bộ mô tả hay dữ liệu nhạy cảm.
 - Nếu gửi thông báo lỗi, nghiệp vụ chính vẫn thành công; lỗi được ghi log để xử lý lại.
 
-## 9. Sự kiện và hàng đợi (thiết kế cho tuần 3–6)
+## 9. Sự kiện và hàng đợi (đã triển khai)
 
 | Sự kiện | Routing key | Nội dung cốt lõi |
 |---|---|---|
-| `TicketCreated` | `ticket.created` | `messageId`, `version`, `ticketId`, `category`, `priority`, `createdByUserId`, `occurredAt` |
-| `TicketAssigned` | `ticket.assigned` | `messageId`, `ticketId`, `teamId`, `assignedUserId?`, `occurredAt` |
-| `TicketStatusChanged` | `ticket.status-changed` | `messageId`, `ticketId`, `oldStatus`, `newStatus`, `changedByUserId`, `occurredAt` |
+| `TicketCreated` | `ticket.created` | `messageId`, `version`, `ticketId`, `ticketNumber`, `category`, `priority`, `requesterId`, `occurredAt` |
+| `TicketAssigned` | `ticket.assigned` | `messageId`, `ticketId`, `ticketNumber`, `teamId/teamName`, `assignedUserId/assignedUserName?`, `oldStatus`, `newStatus`, `changedByUserId`, `occurredAt` |
+| `TicketStatusChanged` | `ticket.status-changed` | `messageId`, `ticketId`, `ticketNumber`, `oldStatus`, `newStatus`, `changedByUserId`, `team`, `assignedUser`, `occurredAt` |
 
-- Exchange: `support-tickets` kiểu `topic`, durable.
-- Queue: `assignment-worker` bind `ticket.created`.
-- Queue: `notification-service` bind `ticket.assigned`, `ticket.status-changed`.
-- Hàng đợi lỗi: `support-tickets-dlq` thông qua dead-letter exchange `support-tickets-dlx` (tuần 6).
-- Mọi message có `MessageId` để chống xử lý trùng.
+- Exchange: `support-tickets` kiểu `topic`, durable; message persistent, publisher confirm, `mandatory=true`.
+- Outbox: sự kiện lưu cùng transaction với ticket/lịch sử; tiến trình nền gửi lại khi RabbitMQ gián đoạn.
+- Queue chính: `assignment-worker` (bind `ticket.created`), `notification-service` (bind `ticket.assigned`, `ticket.status-changed`).
+- Retry: `assignment-worker.retry`, `notification-service.retry` — TTL 5 giây, sau đó quay lại queue chính.
+- DLQ: `assignment-worker.dlq`, `notification-service.dlq` qua exchange `support-tickets-dlx`; tối đa 3 lần thử.
+- Inbox: bảng `InboxMessages` chống xử lý trùng theo `MessageId` ở cả worker và notification consumer.
+- Message có `MessageId`; worker chỉ ACK sau khi transaction commit thành công.
 
 ## 10. Trường hợp biên và cách xử lý
 
 | Tình huống | Cách xử lý dự kiến |
 |---|---|
-| Worker đang tắt | Ticket vẫn ở `New`; Admin có thể gán thủ công; W6 bổ sung outbox/retry |
-| RabbitMQ tạm mất kết nối khi tạo ticket | Ticket đã lưu vẫn hợp lệ; sự kiện được gửi lại nhờ outbox ở W6 |
+| Worker đang tắt | Ticket vẫn ở `New`; message chờ trong queue; Worker chạy lại sẽ xử lý; Admin có thể gán thủ công |
+| RabbitMQ tạm mất kết nối khi tạo ticket | Ticket đã lưu vẫn hợp lệ; Outbox giữ sự kiện và gửi lại khi broker phục hồi |
 | Thông điệp bị giao lại | Worker kiểm tra ticket đã `Assigned` thì bỏ qua, không ghi lịch sử trùng |
 | Hai nhân viên cập nhật cùng lúc | `RowVersion` phát hiện xung đột, một request nhận `409` |
 | Nhóm đích không tồn tại | Worker ghi log lỗi, không cập nhật ticket, để retry |
@@ -176,10 +182,26 @@ Mỗi thay đổi nghiệp vụ tạo một bản ghi `TicketHistories`:
 | Không có người/nhóm khi `New` | Hợp lệ; đây là trạng thái chờ phân công |
 | Gửi thông báo thất bại | Nghiệp vụ vẫn commit; log lỗi; có thể phát lại sự kiện |
 
+## 10.1. Đăng ký công khai
+
+- Chỉ endpoint `POST /auth/register`; không yêu cầu đăng nhập.
+- `fullName` 2–150, `email` hợp lệ và chưa tồn tại, `password` 8–100.
+- Mọi trường `role` client gửi lên bị bỏ qua; tài khoản mới luôn là `Customer`.
+- Đăng ký thành công trả JWT để vào thẳng giao diện; Admin cấp quyền Agent/Admin sau.
+
+## 10.2. Vô hiệu hóa tài khoản và nhóm
+
+- Không có API xóa người dùng/nhóm/ticket; dùng `IsActive = false`.
+- Tài khoản bị vô hiệu hóa không đăng nhập được; token cũ bị từ chối ở request kế tiếp.
+- Worker và Admin không được gán người/nhóm đang bị vô hiệu hóa.
+- Ticket, lịch sử và thông báo cũ vẫn giữ nguyên; Admin có thể phân công lại nếu cần.
+
 ## 11. Tiêu chí nghiệm thu nghiệp vụ
 
 1. Không thể tạo ticket thiếu trường bắt buộc hoặc sai enum.
 2. Ticket mới luôn ở `New`, không có nhóm/người xử lý.
+3. Đăng ký công khai không thể tự tạo quyền Agent/Admin.
+4. Admin vô hiệu hóa tài khoản thay vì xóa; dữ liệu lịch sử còn nguyên.
 3. Worker giao đúng 4 nhóm theo bảng phân công, kể cả nhánh mặc định `GENERAL`.
 4. Mọi chuyển trạng thái sai thứ tự bị chặn với `409`.
 5. Khách hàng không đọc hoặc cập nhật được ticket của người khác.

@@ -1,8 +1,11 @@
 # W1-01 — Phân tích yêu cầu hệ thống
 
 > Dự án: Hệ thống tiếp nhận và xử lý yêu cầu hỗ trợ khách hàng  
-> Phiên bản tài liệu: 1.0 — 2026-11-19  
-> Trạng thái: Đã hoàn thành ở tuần 1
+> Phiên bản tài liệu: 1.1 — cập nhật 2026-11-23  
+> Trạng thái: Yêu cầu đã được hiện thực đầy đủ. Xem [completion-checklist.md](completion-checklist.md).
+>
+> Thay đổi so với bản 1.0: đăng ký công khai (chỉ Customer) được đưa vào phạm vi theo yêu cầu hoàn thiện;
+> Outbox/Inbox, retry/DLQ và quản trị người dùng/nhóm đã được triển khai, không còn chờ “tuần 6”.
 
 ## 1. Bối cảnh và mục tiêu
 
@@ -38,7 +41,8 @@ Mục tiêu của đồ án:
 - Không bổ sung chức năng AI (theo yêu cầu đề tài).
 - Không có ứng dụng mobile, email/SMS, tổng đài.
 - Không có đính kèm tệp, chat nội bộ, SLA nâng cao, báo cáo phân tích.
-- Không hỗ trợ đa tổ chức (multi-tenant), đăng ký tài khoản tự do.
+- Không hỗ trợ đa tổ chức (multi-tenant). Đăng ký công khai **có** trong phạm vi nhưng luôn tạo vai trò Customer;
+  Admin cấp quyền nhân viên/quản trị.
 - Không có chức năng mở lại ticket đã `Resolved`.
 - Không triển khai Kubernetes hay hạ tầng cloud.
 
@@ -47,7 +51,7 @@ Mục tiêu của đồ án:
 | Tác nhân | Mô tả | Quyền chính |
 |---|---|---|
 | Khách hàng (`Customer`) | Người gửi yêu cầu hỗ trợ | Tạo ticket; xem ticket do mình tạo; xem lịch sử ticket của mình; nhận thông báo |
-| Nhân viên (`Staff`) | Thành viên nhóm xử lý | Xem ticket được giao cho mình/nhóm; chuyển trạng thái ticket được giao; nhận thông báo |
+| Nhân viên (`Agent`) | Thành viên nhóm xử lý | Xem ticket được giao cho mình/nhóm; chuyển trạng thái ticket được giao; nhận thông báo |
 | Quản trị viên (`Admin`) | Quản lý hệ thống | Xem toàn bộ ticket; phân công lại; đổi trạng thái; xem lịch sử; quản lý người dùng/nhóm |
 
 Chi tiết ma trận quyền nằm trong [business-rules.md](business-rules.md).
@@ -56,7 +60,7 @@ Chi tiết ma trận quyền nằm trong [business-rules.md](business-rules.md).
 
 | Mã | Yêu cầu | Ưu tiên | Tiêu chí chấp nhận tóm tắt |
 |---|---|---|---|
-| FR-01 | Đăng nhập và phân quyền | Bắt buộc | Đăng nhập đúng trả JWT; sai thông tin trả 401; API kiểm tra role |
+| FR-01 | Đăng ký, đăng nhập và phân quyền | Bắt buộc | Đăng ký công khai chỉ tạo Customer; đăng nhập đúng trả JWT; sai thông tin trả 401; API kiểm tra role |
 | FR-02 | Tạo ticket | Bắt buộc | Ticket lưu trạng thái `New`, có người gửi lấy từ token |
 | FR-03 | Danh sách ticket | Bắt buộc | Có phân trang, lọc theo trạng thái/ưu tiên; chỉ trả dữ liệu được phép xem |
 | FR-04 | Chi tiết ticket | Bắt buộc | Trả đủ trường; 403/404 nếu không có quyền hoặc không tồn tại |
@@ -67,7 +71,9 @@ Chi tiết ma trận quyền nằm trong [business-rules.md](business-rules.md).
 | FR-09 | Lịch sử thay đổi | Bắt buộc | Mỗi thay đổi có bản ghi cũ/mới, người thực hiện, thời gian |
 | FR-10 | Thông báo realtime | Bắt buộc | Người có quyền xem nhận thông báo qua SignalR; không gửi nhầm người |
 | FR-11 | Kiểm soát truy cập | Bắt buộc | Không tin `userId` từ client; kiểm tra quyền ở backend cho mọi API |
-| FR-12 | Độ tin cậy thông điệp | Bắt buộc | Chống trùng, retry có giới hạn, DLQ, outbox (tuần 6) |
+| FR-12 | Độ tin cậy thông điệp | Bắt buộc | Outbox + Inbox, chống trùng, retry có giới hạn, DLQ — đã triển khai |
+| FR-13 | Quản trị hệ thống | Bắt buộc | Admin quản lý tài khoản, nhóm, thành viên; vô hiệu hóa thay vì xóa |
+| FR-14 | Tương thích đường dẫn | Bắt buộc | Hỗ trợ cả `/tickets` và `/api/tickets`, có kiểm thử |
 
 ## 5. Yêu cầu phi chức năng
 
@@ -84,7 +90,8 @@ Chi tiết ma trận quyền nằm trong [business-rules.md](business-rules.md).
 
 - Cập nhật ticket và ghi lịch sử trong cùng một transaction.
 - Chỉ publish sự kiện sau khi dữ liệu đã commit thành công.
-- Tuần 6 bổ sung Outbox để không mất sự kiện khi RabbitMQ gián đoạn.
+- Outbox đã được triển khai: sự kiện ghi cùng transaction nghiệp vụ và được gửi lại khi RabbitMQ gián đoạn.
+- Inbox chống xử lý trùng theo `MessageId`; retry có giới hạn và DLQ.
 - Consumer xử lý trùng không tạo thêm phân công/lịch sử.
 - Retry có giới hạn, sau đó đưa vào hàng đợi lỗi (DLQ) và ghi log.
 - Dùng optimistic concurrency (`RowVersion`) để tránh ghi đè khi hai người cập nhật cùng lúc.
@@ -118,13 +125,13 @@ Chi tiết ma trận quyền nằm trong [business-rules.md](business-rules.md).
 | A-06 | Mức ưu tiên: `Low`, `Medium`, `High`; mặc định `Medium` | Đơn giản, dễ kiểm thử |
 | A-07 | `TicketNumber` dạng `TK-XXXXXXXX` (8 ký tự GUID), có unique index | Không phụ thuộc sequence; có thể đổi ở tuần 2 |
 | A-08 | Thời gian lưu UTC, hiển thị theo múi giờ trình duyệt | Tránh sai lệch giữa các thành phần |
-| A-09 | Tài khoản do Admin tạo/seed dữ liệu mẫu; không tự đăng ký | Giảm phạm vi, phù hợp đồ án |
+| A-09 | Đăng ký công khai chỉ tạo Customer; Agent/Admin do Admin tạo hoặc seed | Đáp ứng yêu cầu hoàn thiện, không cho tự nâng quyền |
 | A-10 | Notification Service và SignalR Hub chạy cùng tiến trình API | Đơn giản hóa triển khai; worker vẫn chạy riêng |
 | A-11 | Một khách hàng có thể là nhân viên ở nhóm khác; quyền xem vẫn theo vai trò | Ma trận quyền xử lý theo role + quan hệ phân công |
 
 ## 7. Ràng buộc
 
-- Thời gian thực hiện: 7 tuần.
+- Thời gian thực hiện: theo tiến độ đồ án; giai đoạn hoàn thiện không chia công việc theo tuần.
 - Không thêm chức năng AI.
 - Chạy được trên máy cá nhân với Docker Desktop.
 - Không commit mật khẩu, token, file `.env`, thư mục `bin/`, `obj/`.

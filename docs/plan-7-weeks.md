@@ -1,8 +1,11 @@
-# Kế hoạch thực hiện 7 tuần
+# Kế hoạch thực hiện 7 tuần (tài liệu lịch sử)
 
+> **Lưu ý:** tài liệu này chỉ còn giá trị lịch sử của giai đoạn khởi tạo. Giai đoạn hoàn thiện **không chia
+> công việc theo tuần**; trạng thái thực tế theo chức năng nằm tại [completion-checklist.md](completion-checklist.md).
+>
 > Dự án: Hệ thống tiếp nhận và xử lý yêu cầu hỗ trợ khách hàng  
 > Cập nhật: 2026-11-19  
-> Repository: **chưa cấu hình remote** (link repository còn trống trong yêu cầu)
+> Repository: `https://github.com/dtc245230011/Giang-A-Vang`
 
 ## 1. Quy ước
 
